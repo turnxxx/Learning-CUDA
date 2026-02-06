@@ -14,7 +14,10 @@
 PLATFORM        ?= nvidia
 PLATFORM_DEFINE ?= -DPLATFORM_NVIDIA
 STUDENT_SUFFIX  := cu
-CFLAGS          := -std=c++17 -O0
+CFLAGS          := -std=c++17 -O0 -rdc=true
+# GPU architecture: use sm_75 for modern GPUs (Turing/Ampere), or specify via ARCH env var
+CUDA_ARCH       ?= sm_75
+ARCH_FLAGS      := -arch=$(CUDA_ARCH) -Wno-deprecated-gpu-targets
 EXTRA_LIBS     	:= 
 
 # Compiler & Tester object selection based on PLATFORM
@@ -47,7 +50,7 @@ endif
 # Executable name
 TARGET          	:= test_kernels
 # Kernel implementation
-STUDENT_SRC     	:= src/kernels.$(STUDENT_SUFFIX) 
+STUDENT_SRC     	:= src/kernels.$(STUDENT_SUFFIX) src/utils.cu
 # Compiled student object (auto-generated)
 STUDENT_OBJ  		:= $(addsuffix .o,$(basename $(STUDENT_SRC)))
 # Tester's actual verbose argument (e.g., --verbose, -v)
@@ -95,9 +98,9 @@ clean:
 # Generate executable: Link kernel code (kernels.o) with test logic (tester.o)
 $(TARGET): $(STUDENT_OBJ) $(TEST_OBJ)
 	@echo "=== Linking executable (student code + test logic) ==="
-	$(CC) $(CFLAGS) $(PLATFORM_DEFINE) -o $@ $^ $(EXTRA_LIBS)
+	$(CC) $(CFLAGS) $(PLATFORM_DEFINE) $(ARCH_FLAGS) -o $@ $^ $(EXTRA_LIBS) -rdc=true
 
-# Generate src object: Compile kernels.cu (triggers template instantiation)
-$(STUDENT_OBJ): $(STUDENT_SRC)
-	@echo "=== Compiling student code ($(STUDENT_SRC)) ==="
-	$(CC) $(CFLAGS) $(PLATFORM_DEFINE) -c $< -o $@
+# Generate src objects: Compile each source file
+src/%.o: src/%.$(STUDENT_SUFFIX) src/block_attention.cuh src/utils.cuh
+	@echo "=== Compiling student code ($<) ==="
+	$(CC) $(CFLAGS) $(PLATFORM_DEFINE) $(ARCH_FLAGS) -c $< -o $@

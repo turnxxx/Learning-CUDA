@@ -1,0 +1,48 @@
+# 指定语言为 C++ (clang-format 将 .cu 视为 C++)
+Language: Cpp
+
+# 核心：基于 Google 官方风格
+BasedOnStyle: Google
+
+# --- 针对 CUDA 的优化与覆盖 ---
+
+# 1. 行宽设置
+# Google 默认是 80，但这对于 CUDA 来说太短了。
+# CUDA 的 kernel 启动语法 <<<...>>> 和 __host__ __device__ 前缀通常很长。
+# 建议设置为 100 或 120。
+ColumnLimit: 120
+
+# 2. 缩进设置 (保持 Google 的 2 空格风格)
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+
+# 3. 包含头文件排序
+# 自动将 #include 按字母顺序排序，保持头部整洁
+SortIncludes: true
+
+# 4. 指针位置
+# Google 风格通常倾向于 int* ptr (Left) 或者自动推导
+# 强制设为 Left 在 C++ 中更现代
+PointerAlignment: Left
+
+# 5. 保留换行
+# 不强制合并短函数，方便调试 kernel
+AllowShortFunctionsOnASingleLine: Empty
+
+# 6. 宏与属性对齐
+# 帮助对齐 __global__, __shared__ 等修饰符后的变量
+AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: false
+
+# 7. 括号换行风格
+# Google 风格是 Attach (花括号不换行)，类似 Java/JS
+# if (condition) {
+#   ...
+# }
+BreakBeforeBraces: Attach
+
+# 8. CUDA Kernel 启动语法的特殊处理
+# 确保 <<<grid, block>>> 内部不会被奇怪地断行
+# 注意：这依赖于 clang-format 的版本，较新版本对 CUDA 支持更好
+PenaltyBreakBeforeFirstCallParameter: 19
