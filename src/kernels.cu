@@ -158,12 +158,12 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k, const 
                     std::vector<T>& h_o, int batch_size, int target_seq_len, int src_seq_len, int query_heads,
                     int kv_heads, int head_dim, bool is_causal) {
   // 一些日志
-  /*  LOG_INFO("batch_size=%d", batch_size);
-   LOG_INFO("target_seq_len=%d", target_seq_len);
-   LOG_INFO("src_seq_len=%d", src_seq_len);
-   LOG_INFO("query_heads=%d", query_heads);
-   LOG_INFO("kv_heads=%d", kv_heads);
-   LOG_INFO("head_dim=%d", head_dim); */
+  LOG_INFO("batch_size=%d", batch_size);
+  LOG_INFO("target_seq_len=%d", target_seq_len);
+  LOG_INFO("src_seq_len=%d", src_seq_len);
+  LOG_INFO("query_heads=%d", query_heads);
+  LOG_INFO("kv_heads=%d", kv_heads);
+  LOG_INFO("head_dim=%d", head_dim);
   // TODO: Implement the flash attention function
   // 计算并行的模式需要的参数，当前的实现不分batch
   // Br,Bc分别为q和k,v的分块行数大小
@@ -172,7 +172,7 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k, const 
     size_t Br = B_size[0];
     size_t Bc = B_size[1]; */
   // 先固定一下 Br Bc看看
-  size_t Br = 32;
+  size_t Br = 32; 
   size_t Bc = 32;
   // 设置kernel launch参数
   int Tr = (target_seq_len + Br - 1) / Br;

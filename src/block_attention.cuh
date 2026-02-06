@@ -63,7 +63,7 @@ __device__ void block_attentionV1(const T* __restrict__ q_s, const T* __restrict
       m_tile = -1.0 / 0.0;
     }
 
-    // 内循环遍历所有列, 一次处理一整列的点积
+    // 内循环遍历所有列, 一次处理一整列的点积，实际上是读取k_s的一整行
     for (int j = 0; j < Bc; j++) {
       int k_col = k_col_start + j;
       AccumT Sij = 0;  // 使用高精度累加器
@@ -85,7 +85,7 @@ __device__ void block_attentionV1(const T* __restrict__ q_s, const T* __restrict
           Sij += q_val * k_val;
         }
       }
-      // warp内归约得到点积
+      // warp内归约得到点积，做完之后lane_id=0的线程拿到了最终结果
       for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
         Sij += warp_shuffle_down(Sij, offset);
       }
