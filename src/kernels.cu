@@ -289,8 +289,8 @@ __global__ void kernel_flash_attn_v2(T* d_q, T* d_k, T* d_v, T* d_o, int batch_s
   size_t t_bytes = (2 * (Bc + Br) * head_dim) * sizeof(T);
   size_t align_t = alignof(float);
   size_t t_bytes_aligned = (t_bytes + align_t - 1) / align_t * align_t;
-  float* s_s = reinterpret_cast<float*>(sram_bytes + t_bytes_aligned);  // S=QK^T: Br*Bc个元素
-  size_t s_bytes = Bc * Br * sizeof(float);
+  AccumT* s_s = reinterpret_cast<AccumT*>(sram_bytes + t_bytes_aligned);  // S=QK^T: Br*Bc个元素
+  size_t s_bytes = Bc * Br * sizeof(AccumT);
   size_t s_bytes_aligned = (t_bytes_aligned + s_bytes + alignof(AccumT) - 1) / alignof(AccumT) * alignof(AccumT);
   AccumT* l_s = reinterpret_cast<AccumT*>(sram_bytes + s_bytes_aligned);  // 分母累加器:Br个元素
   AccumT* m_s = l_s + Br;                                                 // 最大值记录累加器:Br个元素
@@ -326,12 +326,31 @@ __global__ void kernel_flash_attn_v2(T* d_q, T* d_k, T* d_v, T* d_o, int batch_s
     sync_load_gmem_smemV1_masked(d_v + d_v_offset, v_s, Bc, head_dim, v_strides[1], k_valid_rows);
     // 计算片上的 S=softmax(QK^T/scale+Mask)V,并更新m和l
     // 计算scale,q_row_start,k_col_start
-    float scale = rsqrtf(head_dim);
+    float scale = 1.0f / sqrtf(static_cast<float>(head_dim));
 
     int q_row_start = q_chunk_idx * Br;
     int k_col_start = j * Bc;
     block_attentionV1<T, AccumT>(q_s, k_s, v_s, s_s, o_s, l_s, m_s, is_causal, Br, Bc, head_dim, head_dim, head_dim,
                                  head_dim, Bc, head_dim, q_row_start, k_col_start, target_seq_len, src_seq_len, scale);
+  }
+  __syncthreads();
+  // 延迟归一化：O_final = O_unnorm / l
+  for (int idx = threadIdx.x; idx < q_valid_rows * head_dim; idx += blockDim.x) {
+    int row = idx / head_dim;
+    AccumT l_val = l_s[row];
+    if (l_val > static_cast<AccumT>(0)) {
+      if constexpr (std::is_same_v<T, half>) {
+        float o_val = __half2float(o_s[idx]);
+        o_s[idx] = __float2half_rn(o_val / static_cast<float>(l_val));
+      } else {
+        float o_val = static_cast<float>(o_s[idx]);
+        if constexpr (std::is_same_v<AccumT, double>) {
+          o_s[idx] = static_cast<T>(static_cast<double>(o_val) / l_val);
+        } else {
+          o_s[idx] = static_cast<T>(o_val / static_cast<float>(l_val));
+        }
+      }
+    }
   }
   __syncthreads();
   // o_s写回d_o
